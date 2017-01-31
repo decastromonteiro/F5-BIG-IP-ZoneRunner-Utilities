@@ -29,29 +29,29 @@ list_to_string_pattern = r"\'|\,|\[|\]|"
 def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a_records, a_records_delete):
     """This function is used to flush all Records configuration to the BIG-IP ZoneRunner App.
 
-       The objects inside naptr_records looks like this:
+       The objects inside naptr_records / naptr_records_delete looks like this:
 
-        {"action": "add", service": "x-3gpp-mme:x-gn:x-s10",
+        {"service": "x-3gpp-mme:x-gn:x-s10",
         "domain_name": "tac-lb25.tac-hb8E.tac.epc.mnc004.mcc724.3gppnetwork.org.",
         "flags": "a", "preference": 10,
         "ttl": 300, "regexp": "''", "order": 10,
         "replacement": "topoff.vip-gn.DMBSA1.node.epc.mnc004.mcc724.3gppnetwork.org."},
 
-        {"action": "add", "service": "x-3gpp-mme:x-gn:x-s10",
+        {"service": "x-3gpp-mme:x-gn:x-s10",
         "domain_name": "tac-lb25.tac-hb8E.tac.epc.mnc004.mcc724.3gppnetwork.org.",
         "flags": "a", "preference": 10, "ttl": 300, "regexp": "''", "order": 10,
         "replacement": "topoff.vip-gn.DMCTA1.node.epc.mnc004.mcc724.3gppnetwork.org."},
 
-        {"action": "remove", "service": "x-3gpp-sgw:x-s11:x-s5-gtp",
+        {"service": "x-3gpp-sgw:x-s11:x-s5-gtp",
         "domain_name": "tac-lb1A.tac-hb7A.tac.epc.mnc004.mcc724.3gppnetwork.org.",
         "flags": "a", "preference": 10, "ttl": 300, "regexp": "''", "order": 10,
         "replacement": "topoff.vip-s11.GPCTA1.node.epc.mnc004.mcc724.3gppnetwork.org."}
 
-        The objects inside naptr_records looks like this:
+        The objects inside a_records / a_records_delete looks like this:
 
-        {"action": "add", "domain_name":"testp.tim.br.mnc003.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
-        {"action": "add", "domain_name":"testp.tim.br.mnc004.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
-        {"action": "remove", "domain_name":"testp.tim.br.mnc002.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
+        {"domain_name":"testp.tim.br.mnc003.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
+        {"domain_name":"testp.tim.br.mnc004.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
+        {"domain_name":"testp.tim.br.mnc002.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
 
        For more information go to devcentral.f5.com and search for iControl API.
     """
@@ -241,6 +241,29 @@ def gather_dns_records(b, regex, view_name, zone_name, export):
 
 
 def evolved_extract_records(arquivo_input):
+    """This function is used to extract all Records from a file to their respective lists.
+
+       The objects inside the file looks like this:
+
+        {"action": "add", service": "x-3gpp-mme:x-gn:x-s10",
+        "domain_name": "tac-lb25.tac-hb8E.tac.epc.mnc004.mcc724.3gppnetwork.org.",
+        "flags": "a", "preference": 10,
+        "ttl": 300, "regexp": "''", "order": 10,
+        "replacement": "topoff.vip-gn.DMBSA1.node.epc.mnc004.mcc724.3gppnetwork.org."},
+        {"action": "add", "service": "x-3gpp-mme:x-gn:x-s10",
+        "domain_name": "tac-lb25.tac-hb8E.tac.epc.mnc004.mcc724.3gppnetwork.org.",
+        "flags": "a", "preference": 10, "ttl": 300, "regexp": "''", "order": 10,
+        "replacement": "topoff.vip-gn.DMCTA1.node.epc.mnc004.mcc724.3gppnetwork.org."},
+        {"action": "remove", "service": "x-3gpp-sgw:x-s11:x-s5-gtp",
+        "domain_name": "tac-lb1A.tac-hb7A.tac.epc.mnc004.mcc724.3gppnetwork.org.",
+        "flags": "a", "preference": 10, "ttl": 300, "regexp": "''", "order": 10,
+        "replacement": "topoff.vip-s11.GPCTA1.node.epc.mnc004.mcc724.3gppnetwork.org."}
+        {"action": "add", "domain_name":"testp.tim.br.mnc003.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
+        {"action": "add", "domain_name":"testp.tim.br.mnc004.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
+        {"action": "remove", "domain_name":"testp.tim.br.mnc002.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
+
+       For more information go to devcentral.f5.com and search for iControl API.
+    """
     RecordCollection = namedtuple('Records',
                                   'a_records a_records_delete naptr_records naptr_records_delete bad_entries')
     BadEntries = namedtuple('BadEntries', 'File Line Entry Flag')
