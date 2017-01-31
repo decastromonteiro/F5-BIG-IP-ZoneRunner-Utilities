@@ -31,27 +31,27 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
 
        The objects inside naptr_records looks like this:
 
-        {"service": "x-3gpp-mme:x-gn:x-s10",
+        {"action": "add", service": "x-3gpp-mme:x-gn:x-s10",
         "domain_name": "tac-lb25.tac-hb8E.tac.epc.mnc004.mcc724.3gppnetwork.org.",
         "flags": "a", "preference": 10,
         "ttl": 300, "regexp": "''", "order": 10,
         "replacement": "topoff.vip-gn.DMBSA1.node.epc.mnc004.mcc724.3gppnetwork.org."},
 
-        {"service": "x-3gpp-mme:x-gn:x-s10",
+        {"action": "add", "service": "x-3gpp-mme:x-gn:x-s10",
         "domain_name": "tac-lb25.tac-hb8E.tac.epc.mnc004.mcc724.3gppnetwork.org.",
         "flags": "a", "preference": 10, "ttl": 300, "regexp": "''", "order": 10,
         "replacement": "topoff.vip-gn.DMCTA1.node.epc.mnc004.mcc724.3gppnetwork.org."},
 
-        {"service": "x-3gpp-sgw:x-s11:x-s5-gtp",
+        {"action": "remove", "service": "x-3gpp-sgw:x-s11:x-s5-gtp",
         "domain_name": "tac-lb1A.tac-hb7A.tac.epc.mnc004.mcc724.3gppnetwork.org.",
         "flags": "a", "preference": 10, "ttl": 300, "regexp": "''", "order": 10,
         "replacement": "topoff.vip-s11.GPCTA1.node.epc.mnc004.mcc724.3gppnetwork.org."}
 
         The objects inside naptr_records looks like this:
 
-        {"domain_name":"testp.tim.br.mnc003.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
-        {"domain_name":"testp.tim.br.mnc004.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
-        {"domain_name":"testp.tim.br.mnc002.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
+        {"action": "add", "domain_name":"testp.tim.br.mnc003.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
+        {"action": "add", "domain_name":"testp.tim.br.mnc004.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
+        {"action": "remove", "domain_name":"testp.tim.br.mnc002.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
 
        For more information go to devcentral.f5.com and search for iControl API.
     """
@@ -314,7 +314,7 @@ def main_cvna_f5_app_main():
                 raw_input()
         except Exception as error:
             print("Encontramos um erro. Reporte-o ao desenvolvedor (decastromonteiro@gmail.com).")
-            print("\n\n" + str(error))
+            print("\n\n" + error.message)
             raw_input()
 
     while True:
@@ -398,8 +398,14 @@ def main_cvna_f5_app_main():
                             now.day, now.month, now.year, now.hour, now.minute, now.second, username, arquivo_input,
                             "Erro em todas as entradas.")
                         )
-                        for entry in result.BadRecords:
-                            f.write("Entrada: {}\nErro: {}\n\n".format(entry.Record, entry.Error))
+                        if result.BadRecords:
+                            for entry in result.BadRecords:
+                                f.write("Entrada: {}\nErro: {}\n\n".format(entry.Record, entry.Error))
+                        else:
+                            # noinspection PyUnboundLocalVariable
+                            # If there is no BadRecords, it means all were BadEntries
+                            f.write("Todas as entradas estavam fora do padrao. "
+                                    "Verifique o arquivo {}.".format(badentries_log))
                 elif result.Flag == "S":
                     print("\nOcorreram erros em algumas entradas, favor verificar no log {}.".format(file_name))
                     with open(file_name, 'wb') as f:
