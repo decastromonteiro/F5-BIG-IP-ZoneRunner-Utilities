@@ -20,9 +20,11 @@ import json
 import datetime
 import re
 from collections import namedtuple
+import os
 
+# Patterns to Search for DNS Domains, DNS Zones, and to convert a LIST String to a concatenation of elements
 domain_pattern = ".+?(?=\.epc)|.+?(?=\.mnc)"
-zone_pattern = "\mnc.+|\epc.+"
+zone_pattern = "\mnc.+|epc.+"
 list_to_string_pattern = r"\'|\,|\[|\]|"
 
 
@@ -57,6 +59,12 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
     """
 
     def gather_evidence():
+        """
+        This function is used to gather the evidence of entries configured through the main function.
+        It returns a list of entries gathered.
+
+
+        """
         group_of_domains = []
         group_of_domains_to_remove = []
 
@@ -93,8 +101,8 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
             print("\nVerificacao das entradas configuradas:\n")
 
             for domain in group_of_domains:
-                new_entries = gather_dns_records(b, regex=domain, view_name=view_name, zone_name="",
-                                                 export="")
+                new_entries, full_path = gather_dns_records(b, regex=domain, view_name=view_name, zone_name="",
+                                                            export="")
                 if new_entries:
                     evidences_list.append("\nSeguem as entradas configuradas com domain '{}':\n".format(domain))
                     print("\nSeguem as entradas configuradas com domain '{}':\n".format(domain))
@@ -110,8 +118,8 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
             print("\nVerificacao das entradas removidas:\n")
 
             for domain in group_of_domains_to_remove:
-                new_entries = gather_dns_records(b, regex=domain, view_name=view_name, zone_name="",
-                                                 export="")
+                new_entries, full_path = gather_dns_records(b, regex=domain, view_name=view_name, zone_name="",
+                                                            export="")
 
                 if new_entries:
                     evidences_list.append("\nSeguem as entradas configuradas com domain '{}':\n".format(domain))
@@ -210,16 +218,21 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
 
 
 def gather_dns_records(b, regex, view_name, zone_name, export):
-    """This functions is used to query the ZoneRunner App database."""
+    """This functions is used to query the ZoneRunner App database.
+       Returnts a list of entries and the full_path of the export file.
+    """
     now = datetime.datetime.now()
     date = '{}-{}-{}_{}-{}-{}'.format(now.day, now.month, now.year, now.hour, now.minute, now.second)
     records_data = []
+    current_dir = os.getcwd()
+    file_name = view_name + "_{}_{}.txt".format(zone_name, date)
+    full_path = os.path.join(current_dir, file_name)
     for rrs in b.Management.ResourceRecord.get_rrs(
             view_zones=[{"view_name": view_name, "zone_name": zone_name  # example: "mnc002.mcc724.3gppnetwork.org."
                          }]):
         if regex.strip() == "":
             if export.lower() == "s":
-                with open(view_name + "_{}_{}.txt".format(zone_name, date), "wb") as f:
+                with open(full_path, "wb") as f:
                     for records in rrs:
                         f.write(records + "\n")
                         records_data.append(records)
@@ -228,7 +241,7 @@ def gather_dns_records(b, regex, view_name, zone_name, export):
                     records_data.append(records)
         else:
             if export.lower() == "s":
-                with open(view_name + "_{}_{}.txt".format(zone_name, date), "wb") as f:
+                with open(full_path, "wb") as f:
                     for records in rrs:
                         if regex.lower() in records or regex.upper() in records or regex in records:
                             f.write(records + "\n")
@@ -237,7 +250,7 @@ def gather_dns_records(b, regex, view_name, zone_name, export):
                 for records in rrs:
                     if regex.lower() in records or regex.upper() in records or regex in records:
                         records_data.append(records)
-    return records_data
+    return records_data, full_path
 
 
 def evolved_extract_records(arquivo_input):
@@ -356,10 +369,9 @@ def main_cvna_f5_app_main():
             if export.lower() == "s":
                 print("Consultando o DNS...")
                 try:
-                    gather_dns_records(b, regex, view_name, zone_name, export)
-                    now = datetime.datetime.now()
-                    date = '{}-{}-{}_{}-{}-{}'.format(now.day, now.month, now.year, now.hour, now.minute, now.second)
-                    print("Foi gerado o arquivo {}_{}".format(view_name, zone_name + "_{}".format(date)))
+                    result, full_path = gather_dns_records(b, regex, view_name, zone_name, export)
+                    print("Foi gerado o arquivo {} na seguinte pasta: {}".format(os.path.split(full_path)[1],
+                                                                                 os.path.split(full_path)[0]))
                 except Exception as err:
                     print("Encontramos um erro. Reporte-o ao desenvolvedor (decastromonteiro@gmail.com).")
                     print(err)
@@ -368,7 +380,7 @@ def main_cvna_f5_app_main():
                 print("Seguem as entradas recuperadas:\n")
                 print("\n")
                 try:
-                    result = gather_dns_records(b, regex, view_name, zone_name, export)
+                    result, full_path = gather_dns_records(b, regex, view_name, zone_name, export)
                     for r in result:
                         print(r + '\n')
                 except Exception as err:
@@ -388,10 +400,12 @@ def main_cvna_f5_app_main():
                 date = '{}-{}-{}_{}-{}-{}'.format(now.day, now.month, now.year, now.hour, now.minute, now.second)
 
                 if records.bad_entries:
+                    current_dir = os.getcwd()
                     badentries_log = "log_BadEntries_{}.log".format(date)
+                    full_path = os.path.join(current_dir, badentries_log)
                     print("Existem entradas fora do padrao estabelecido. Verifique o arquivo {}.".format(
-                        badentries_log))
-                    with open(badentries_log, 'wb') as f:
+                        full_path))
+                    with open(full_path, 'wb') as f:
                         f.write("\nEntradas fora do padrao:\n\n")
                         for entry in records.bad_entries:
                             f.write("Arquivo: {}\nLinha: {}\nEntrada: {}\nFlag: {}\n\n############\n\n".format(
@@ -408,19 +422,25 @@ def main_cvna_f5_app_main():
                 result = flush_dns_configuration(b, view_name, records.naptr_records,
                                                  records.naptr_records_delete, records.a_records,
                                                  records.a_records_delete)
+                arquivo_input_final = list()
+                for arquivo in arquivo_input:
+                    arquivo_final = os.path.split(arquivo)[1]
+                    arquivo_input_final.append(arquivo_final)
+                current_dir = os.getcwd()
                 file_name = "log_{}_{}.log".format(date,
-                                                   re.sub(list_to_string_pattern, "", str(arquivo_input)).replace(
-                                                       " ", "_"
-                                                   ))
+                                                   re.sub(list_to_string_pattern, "", str(arquivo_input_final)).
+                                                   replace(" ", "_")
+                                                   )
+                full_path = os.path.join(current_dir, file_name)
                 if result.Flag == "A":
                     print("\nOcorreram erros em todas as entradas, portanto nenhuma foi configurada. "
                           "Verifique o log {}.".format(file_name))
-                    with open(file_name, 'wb') as f:
+                    with open(full_path, 'wb') as f:
                         f.write("Data: {}/{}/{}\nHora: {}:{}:{}\nUsuario: {}\nArquivos Utilizados: {}\n"
-                                "Flag: {}\n\n".format(
-                            now.day, now.month, now.year, now.hour, now.minute, now.second, username, arquivo_input,
-                            "Erro em todas as entradas.")
-                        )
+                                "Flag: {}\n\n".format(now.day, now.month, now.year, now.hour, now.minute,
+                                                      now.second, username, arquivo_input,
+                                                      "Erro em todas as entradas.")
+                                )
                         if result.BadRecords:
                             for entry in result.BadRecords:
                                 f.write("Entrada: {}\nErro: {}\n\n".format(entry.Record, entry.Error))
@@ -431,12 +451,12 @@ def main_cvna_f5_app_main():
                                     "Verifique o arquivo {}.".format(badentries_log))
                 elif result.Flag == "S":
                     print("\nOcorreram erros em algumas entradas, favor verificar no log {}.".format(file_name))
-                    with open(file_name, 'wb') as f:
+                    with open(full_path, 'wb') as f:
                         f.write("Data: {}/{}/{}\nHora: {}:{}:{}\nUsuario: {}\nArquivos Utilizados: {}\n"
-                                "Flag: {}\n\n".format(
-                            now.day, now.month, now.year, now.hour, now.minute, now.second, username, arquivo_input,
-                            "Erro em algumas entradas.")
-                        )
+                                "Flag: {}\n\n".format(now.day, now.month, now.year, now.hour,
+                                                      now.minute, now.second, username, arquivo_input,
+                                                      "Erro em algumas entradas.")
+                                )
                         f.write("Entradas nao configuradas, por erros:\n\n")
                         for entry in result.BadRecords:
                             f.write("Entrada: {}\nErro: {}\n\n".format(entry.Record, entry.Error))
@@ -444,12 +464,12 @@ def main_cvna_f5_app_main():
                             f.write(entry + '\n')
                 elif result.Flag == "N":
                     print("\nConfiguracoes concluidas com sucesso!\n")
-                    with open(file_name, 'wb') as f:
+                    with open(full_path, 'wb') as f:
                         f.write("Data: {}/{}/{}\nHora: {}:{}:{}\nUsuario: {}\nArquivos Utilizados: {}\n"
-                                "Flag: {}\n\n".format(
-                            now.day, now.month, now.year, now.hour, now.minute, now.second, username, arquivo_input,
-                            "Todas as entradas foram configuradas.")
-                        )
+                                "Flag: {}\n\n".format(now.day, now.month, now.year, now.hour,
+                                                      now.minute, now.second, username, arquivo_input,
+                                                      "Todas as entradas foram configuradas.")
+                                )
                         for evidence in result.Evidence:
                             f.write(evidence + '\n')
 
