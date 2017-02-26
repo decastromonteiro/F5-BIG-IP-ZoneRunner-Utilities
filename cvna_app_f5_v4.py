@@ -24,7 +24,7 @@ import os
 
 # Patterns to Search for DNS Domains, DNS Zones, and to convert a LIST String to a concatenation of elements
 domain_pattern = ".+?(?=\.epc)|.+?(?=\.mnc)"
-zone_pattern = "\mnc.+|epc.+"
+zone_pattern = "mnc.+|epc.+"
 list_to_string_pattern = r"\'|\,|\[|\]|"
 
 
@@ -60,7 +60,9 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
 
     def gather_evidence():
         """
-        This function is used to gather the evidence of entries configured through the main function.
+        This function is used to gather the evidence of entries configured through the main flush_dns_configuration
+        function.
+
         It returns a list of entries gathered.
 
 
@@ -136,8 +138,8 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
     TypeofSuccess = namedtuple('TypeofSuccess', 'Flag Evidence BadRecords')
     badrecord_list = list()
     total_len = len(a_records) + len(a_records_delete) + len(naptr_records) + len(naptr_records_delete)
-    # Add NAPTR Records
 
+    # Add NAPTR Records
     if len(naptr_records) != 0:
         records_to_remove = list()
         for records in naptr_records:
@@ -153,8 +155,8 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
                 continue
         for records in records_to_remove:
             naptr_records.remove(records)
-    # Delete NAPTR Records
 
+    # Delete NAPTR Records
     if len(naptr_records_delete) != 0:
         records_to_remove = list()
         for records in naptr_records_delete:
@@ -170,8 +172,8 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
                 continue
         for records in records_to_remove:
             naptr_records_delete.remove(records)
-    # Add A Records
 
+    # Add A Records
     if len(a_records) != 0:
         records_to_remove = list()
         for records in a_records:
@@ -188,8 +190,8 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
                 continue
         for records in records_to_remove:
             a_records.remove(records)
-    # Delete A Records
 
+    # Delete A Records
     if len(a_records_delete) != 0:
         records_to_remove = list()
         for records in a_records_delete:
