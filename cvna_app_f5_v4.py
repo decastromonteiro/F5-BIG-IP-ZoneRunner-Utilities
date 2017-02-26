@@ -11,7 +11,6 @@
 try:
     # noinspection PyUnresolvedReferences
     import bigsuds
-
     _import_status = 'OK'
 except ImportError:
     _import_status = 'NOK'
@@ -28,7 +27,7 @@ import os
 # Patterns to Search for DNS Domains, DNS Zones, and to convert a LIST String to a concatenation of elements
 domain_pattern = ".+?(?=\.epc)|.+?(?=\.mnc)"
 zone_pattern = "mnc.+|epc.+"
-list_to_string_pattern = r"\'|\,|\[|\]|"
+list_to_string_pattern = r"\'|\,|\[|\]"
 
 
 def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a_records, a_records_delete):
