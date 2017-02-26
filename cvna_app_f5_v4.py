@@ -11,7 +11,10 @@
 try:
     # noinspection PyUnresolvedReferences
     import bigsuds
+
+    _import_status = 'OK'
 except ImportError:
+    _import_status = 'NOK'
     print("Instale a biblioteca bigsuds utilizando pip, e. pip install bigsuds.")
     input()
 
@@ -489,5 +492,5 @@ def main_cvna_f5_app_main():
             break
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and _import_status == 'OK':
     main_cvna_f5_app_main()
