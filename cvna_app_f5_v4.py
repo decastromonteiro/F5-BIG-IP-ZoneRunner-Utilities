@@ -223,8 +223,12 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
 
 def gather_dns_records(b, regex, view_name, zone_name, export):
     """This functions is used to query the ZoneRunner App database.
-       Returnts a list of entries and the full_path of the export file.
+       Returns a list of entries and the full_path of the export file.
+       At least one of two parameters shall be specified (view_name or zone_name).
     """
+
+    if not view_name.strip():
+        view_name = "internal"
     now = datetime.datetime.now()
     date = '{}-{}-{}_{}-{}-{}'.format(now.day, now.month, now.year, now.hour, now.minute, now.second)
     records_data = []
