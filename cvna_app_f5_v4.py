@@ -1,8 +1,8 @@
 # coding=utf-8
 #####################################################
-#                    Versao 4                       #
+#                    Versao 4.3                     #
 #                                                   #
-#                 Data 30-01-2017                   #
+#                 Data 09-01-2018                  #
 #                                                   #
 #            Autor: Leonardo Monteiro               #
 #      E-mail: decastromonteiro@gmail.com           #
@@ -11,9 +11,7 @@
 try:
     # noinspection PyUnresolvedReferences
     import bigsuds
-    _import_status = 'OK'
 except ImportError:
-    _import_status = 'NOK'
     print("Instale a biblioteca bigsuds utilizando pip, e. pip install bigsuds.")
     input()
 
@@ -23,11 +21,32 @@ import datetime
 import re
 from collections import namedtuple
 import os
+import argparse
 
 # Patterns to Search for DNS Domains, DNS Zones, and to convert a LIST String to a concatenation of elements
 domain_pattern = ".+?(?=\.epc)|.+?(?=\.mnc)"
-zone_pattern = "mnc.+|epc.+"
-list_to_string_pattern = r"\'|\,|\[|\]"
+zone_pattern = "\mnc.+|epc.+"
+list_to_string_pattern = r"\'|\,|\[|\]|"
+parser = argparse.ArgumentParser()
+parser.add_argument("-i", "--ip", help="IP Address of F5 BIG-IP Platform", type=str)
+parser.add_argument("-u", "--user", help="Username to access F5 BIG-IP Platform", type=str)
+parser.add_argument("-p", "--password", help="Password to access F5 BIG-IP Platform", type=str)
+parser.add_argument("-a", "--action",
+                    help="Choose the action to be performed by CVNA APP F5."
+                         "1: Consultar zona no DNS\n"
+                         "2: Criar/Remover Entradas no DNS\n"
+                         "3: Sair", type=str)
+parser.add_argument("-v", "--view", help="Choose the DNS view to use", type=str)
+parser.add_argument("-f", "--file", help="Input file path containing configurations", type=str)
+parser.add_argument("-z", "--zone",
+                    help="Choose the DNS zone to query.\n This option is used only when --action is 1.", type=str)
+parser.add_argument("-n", "--name", help="Input name to query.\n This option is used only when --action is 1.",
+                    type=str)
+parser.add_argument("-e", "--export",
+                    help="Choose whether to export the query to a file or not.\ns: export\n\nn: no export\n"
+                         "\nThis option is used only when --action is 1.",
+                    type=str)
+args = parser.parse_args()
 
 
 def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a_records, a_records_delete):
@@ -38,17 +57,17 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
         {"service": "x-3gpp-mme:x-gn:x-s10",
         "domain_name": "tac-lb25.tac-hb8E.tac.epc.mnc004.mcc724.3gppnetwork.org.",
         "flags": "a", "preference": 10,
-        "ttl": 300, "regexp": "''", "order": 10,
+        "ttl": 300, "regexp": "\"\"", "order": 10,
         "replacement": "topoff.vip-gn.DMBSA1.node.epc.mnc004.mcc724.3gppnetwork.org."},
 
         {"service": "x-3gpp-mme:x-gn:x-s10",
         "domain_name": "tac-lb25.tac-hb8E.tac.epc.mnc004.mcc724.3gppnetwork.org.",
-        "flags": "a", "preference": 10, "ttl": 300, "regexp": "''", "order": 10,
+        "flags": "a", "preference": 10, "ttl": 300, "regexp": "\"\"", "order": 10,
         "replacement": "topoff.vip-gn.DMCTA1.node.epc.mnc004.mcc724.3gppnetwork.org."},
 
         {"service": "x-3gpp-sgw:x-s11:x-s5-gtp",
         "domain_name": "tac-lb1A.tac-hb7A.tac.epc.mnc004.mcc724.3gppnetwork.org.",
-        "flags": "a", "preference": 10, "ttl": 300, "regexp": "''", "order": 10,
+        "flags": "a", "preference": 10, "ttl": 300, "regexp": "\"\"", "order": 10,
         "replacement": "topoff.vip-s11.GPCTA1.node.epc.mnc004.mcc724.3gppnetwork.org."}
 
         The objects inside a_records / a_records_delete looks like this:
@@ -62,9 +81,7 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
 
     def gather_evidence():
         """
-        This function is used to gather the evidence of entries configured through the main flush_dns_configuration
-        function.
-
+        This function is used to gather the evidence of entries configured through the main function.
         It returns a list of entries gathered.
 
 
@@ -140,8 +157,8 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
     TypeofSuccess = namedtuple('TypeofSuccess', 'Flag Evidence BadRecords')
     badrecord_list = list()
     total_len = len(a_records) + len(a_records_delete) + len(naptr_records) + len(naptr_records_delete)
-
     # Add NAPTR Records
+
     if len(naptr_records) != 0:
         records_to_remove = list()
         for records in naptr_records:
@@ -157,8 +174,8 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
                 continue
         for records in records_to_remove:
             naptr_records.remove(records)
-
     # Delete NAPTR Records
+
     if len(naptr_records_delete) != 0:
         records_to_remove = list()
         for records in naptr_records_delete:
@@ -174,8 +191,8 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
                 continue
         for records in records_to_remove:
             naptr_records_delete.remove(records)
-
     # Add A Records
+
     if len(a_records) != 0:
         records_to_remove = list()
         for records in a_records:
@@ -192,8 +209,8 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
                 continue
         for records in records_to_remove:
             a_records.remove(records)
-
     # Delete A Records
+
     if len(a_records_delete) != 0:
         records_to_remove = list()
         for records in a_records_delete:
@@ -223,10 +240,8 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
 
 def gather_dns_records(b, regex, view_name, zone_name, export):
     """This functions is used to query the ZoneRunner App database.
-       Returns a list of entries and the full_path of the export file.
-       At least one of two parameters shall be specified (view_name or zone_name).
+       Returnts a list of entries and the full_path of the export file.
     """
-
     if not view_name.strip():
         view_name = "internal"
     now = datetime.datetime.now()
@@ -269,15 +284,15 @@ def evolved_extract_records(arquivo_input):
         {"action": "add", service": "x-3gpp-mme:x-gn:x-s10",
         "domain_name": "tac-lb25.tac-hb8E.tac.epc.mnc004.mcc724.3gppnetwork.org.",
         "flags": "a", "preference": 10,
-        "ttl": 300, "regexp": "''", "order": 10,
+        "ttl": 300, "regexp": "\"\"", "order": 10,
         "replacement": "topoff.vip-gn.DMBSA1.node.epc.mnc004.mcc724.3gppnetwork.org."},
         {"action": "add", "service": "x-3gpp-mme:x-gn:x-s10",
         "domain_name": "tac-lb25.tac-hb8E.tac.epc.mnc004.mcc724.3gppnetwork.org.",
-        "flags": "a", "preference": 10, "ttl": 300, "regexp": "''", "order": 10,
+        "flags": "a", "preference": 10, "ttl": 300, "regexp": "\"\"", "order": 10,
         "replacement": "topoff.vip-gn.DMCTA1.node.epc.mnc004.mcc724.3gppnetwork.org."},
         {"action": "remove", "service": "x-3gpp-sgw:x-s11:x-s5-gtp",
         "domain_name": "tac-lb1A.tac-hb7A.tac.epc.mnc004.mcc724.3gppnetwork.org.",
-        "flags": "a", "preference": 10, "ttl": 300, "regexp": "''", "order": 10,
+        "flags": "a", "preference": 10, "ttl": 300, "regexp": "\"\"", "order": 10,
         "replacement": "topoff.vip-s11.GPCTA1.node.epc.mnc004.mcc724.3gppnetwork.org."}
         {"action": "add", "domain_name":"testp.tim.br.mnc003.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
         {"action": "add", "domain_name":"testp.tim.br.mnc004.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
@@ -329,10 +344,13 @@ def main_cvna_f5_app_main():
     print("\nBem vindo a ferramenta de CVNA do BIG-IP F5\n")
     _status = "NOK"
     while _status != "OK":
-        print("Por favor, insira as infos abaixo para obter acesso ao BIG-IP:\n")
-        hostname = raw_input("Digite o IP do Big-IP: ")
-        username = raw_input("Usuario: ")
-        password = getpass.getpass('Senha: ')
+        if not args.ip or not args.user or not args.password:
+            print("Por favor, insira as infos abaixo para obter acesso ao BIG-IP:\n")
+
+        hostname = args.ip if args.ip else raw_input("Digite o IP do Big-IP: ")
+        username = args.user if args.user else raw_input("Usuario: ")
+        password = args.password if args.password else getpass.getpass('Senha: ')
+        print('Tentanto conexao com o BIG-IP F5...')
         b = bigsuds.BIGIP(
 
             hostname=hostname.strip(),
@@ -346,34 +364,49 @@ def main_cvna_f5_app_main():
             system_name = b.System.Inet.get_hostname()
             print("\nConectado ao BIG-IP: {}\nVersao: {}\n\n".format(system_name, version))
             _status = "OK"
+            args.password = None
         except bigsuds.ConnectionError as error:
             if "HTTP Error 401:" in error.message:
+                args.user = None
+                args.password = None
                 print("\n\nUsuario ou Senha errados, por favor verifique e tente novamente."
                       "\n\nPressione <Enter> para sair.")
                 raw_input()
             else:
                 # noinspection PyProtectedMember
+                args.ip = None
                 print("\n\nUma tentativa de conexao com o BIG-IP: [{}] falhou. Verifique o IP e tente novamente."
                       "\n\nPressione <Enter> para sair.".format(b._hostname))
                 raw_input()
         except Exception as error:
+            args.ip = None
+            args.user = None
+            args.password = None
             print("Encontramos um erro. Reporte-o ao desenvolvedor (decastromonteiro@gmail.com).")
             print("\n\n" + error.message)
             raw_input()
 
     while True:
-        print("\nEscolha uma das opcoes abaixo para prosseguir:")
-        print("1: Consultar zona no DNS\n"
-              "2: Criar/Remover Entradas no DNS\n"
-              "3: Sair\n"
-              )
+        if not args.action:
+            print("\nEscolha uma das opcoes abaixo para prosseguir:")
+            print("1: Consultar zona no DNS\n"
+                  "2: Criar/Remover Entradas no DNS\n"
+                  "3: Sair\n"
+                  )
 
-        choose_action = raw_input("> ")
+            choose_action = raw_input("> ")
+        else:
+            choose_action = args.action.strip()
+
         if choose_action == "1":
-            view_name = raw_input("Digite o nome da view que deseja consultar: ").strip()
-            zone_name = raw_input("Digite o nome da zona que deseja consultar: ").strip()
-            regex = raw_input("Digite um nome especifico que deseja consultar dentro da zona: ").strip()
-            export = raw_input("Deseja exportar as respostas para um arquivo? (s\\n): ").strip()
+            view_name = args.view.strip() if args.view else raw_input(
+                "Digite o nome da view que deseja consultar: ").strip()
+            zone_name = args.zone.strip() if args.zone else raw_input(
+                "Digite o nome da zona que deseja consultar: ").strip()
+            regex = args.name.strip() if args.name else raw_input(
+                "Digite um nome especifico que deseja consultar dentro da zona: ").strip()
+            export = args.export.strip() if args.export else raw_input(
+                "Deseja exportar as respostas para um arquivo? (s\\n): ").strip()
             if export.lower() == "s":
                 print("Consultando o DNS...")
                 try:
@@ -398,9 +431,10 @@ def main_cvna_f5_app_main():
 
         elif choose_action == "2":
 
-            view_name = raw_input("Escreva o nome da view que deseja configurar: ")
-            arquivo_input = raw_input("Escreva os nomes dos arquivos de input, utilizando ponto e virgula (;) "
-                                      "como separador: ").split(";")
+            view_name = args.view.strip() if args.view else raw_input("Escreva o nome da view que deseja configurar: ")
+            arquivo_input = args.file.strip() if args.file else raw_input(
+                "Escreva os nomes dos arquivos de input, utilizando ponto e virgula (;) "
+                "como separador: ").split(";")
             try:
 
                 records = evolved_extract_records(arquivo_input)
@@ -494,6 +528,13 @@ def main_cvna_f5_app_main():
             raw_input()
             break
 
+        args.action = None
+        args.view = None
+        args.zone = None
+        args.name = None
+        args.export = None
+        args.file = None
 
-if __name__ == "__main__" and _import_status == 'OK':
+
+if __name__ == "__main__":
     main_cvna_f5_app_main()
