@@ -1,8 +1,8 @@
 # coding=utf-8
 #####################################################
-#                    Versao 4.3                     #
+#                    Versao 4.4                     #
 #                                                   #
-#                 Data 09-01-2018                  #
+#                 Data 16-05-2018                  #
 #                                                   #
 #            Autor: Leonardo Monteiro               #
 #      E-mail: decastromonteiro@gmail.com           #
@@ -11,9 +11,12 @@
 try:
     # noinspection PyUnresolvedReferences
     import bigsuds
-except ImportError:
+    _import_status = 'OK'
+except ImportError, exc:
+    _import_status = 'NOK'
     print("Instale a biblioteca bigsuds utilizando pip, e. pip install bigsuds.")
-    input()
+    print(exc)
+    raw_input()
 
 import getpass
 import json
@@ -536,5 +539,5 @@ def main_cvna_f5_app_main():
         args.file = None
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and _import_status == 'OK':
     main_cvna_f5_app_main()
