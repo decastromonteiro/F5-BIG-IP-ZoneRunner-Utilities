@@ -1,8 +1,8 @@
 # coding=utf-8
 #####################################################
-#                    Versao 4.4                     #
+#                    Versao 5.0                     #
 #                                                   #
-#                 Data 16-05-2018                  #
+#                 Data 13-06-2018                   #
 #                                                   #
 #            Autor: Leonardo Monteiro               #
 #      E-mail: decastromonteiro@gmail.com           #
@@ -27,8 +27,8 @@ import os
 import argparse
 
 # Patterns to Search for DNS Domains, DNS Zones, and to convert a LIST String to a concatenation of elements
-domain_pattern = ".+?(?=\.epc)|.+?(?=\.mnc)"
-zone_pattern = "\mnc.+|epc.+"
+domain_pattern = ".+?(?=\.epc)|.+?(?=\.mnc)|.+?(?=\.ims)"
+zone_pattern = "\mnc.+|epc.+|ims.+"
 list_to_string_pattern = r"\'|\,|\[|\]|"
 parser = argparse.ArgumentParser()
 parser.add_argument("-i", "--ip", help="IP Address of F5 BIG-IP Platform", type=str)
