@@ -11,6 +11,7 @@
 try:
     # noinspection PyUnresolvedReferences
     import bigsuds
+
     _import_status = 'OK'
 except ImportError, exc:
     _import_status = 'NOK'
@@ -25,6 +26,7 @@ import re
 from collections import namedtuple
 import os
 import argparse
+import sys
 
 # Patterns to Search for DNS Domains, DNS Zones, and to convert a LIST String to a concatenation of elements
 domain_pattern = ".+?(?=\.epc)|.+?(?=\.mnc)|.+?(?=\.ims)"
@@ -52,7 +54,8 @@ parser.add_argument("-e", "--export",
 args = parser.parse_args()
 
 
-def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a_records, a_records_delete):
+def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a_records, a_records_delete,
+                            aaaa_records, aaaa_records_delete):
     """This function is used to flush all Records configuration to the BIG-IP ZoneRunner App.
 
        The objects inside naptr_records / naptr_records_delete looks like this:
@@ -79,6 +82,12 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
         {"domain_name":"testp.tim.br.mnc004.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
         {"domain_name":"testp.tim.br.mnc002.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
 
+        The objects inside aaaa_records / aaaa_records_delete looks like this:
+
+        {"domain_name":"testp.tim.br.mnc003.mcc724.gprs.", "ip_address": "2804:20:4::20", "ttl":300}
+        {"domain_name":"testp.tim.br.mnc004.mcc724.gprs.", "ip_address": "2804:20:4::21", "ttl":300}
+        {"domain_name":"testp.tim.br.mnc002.mcc724.gprs.", "ip_address": "2804:20:4::22", "ttl":300}
+
        For more information go to devcentral.f5.com and search for iControl API.
     """
 
@@ -97,6 +106,11 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
                 domain = re.search(domain_pattern, [dicts.get("domain_name") for dicts in a_records][i])
                 group_of_domains.append(domain.group())
 
+        if aaaa_records:
+            for i in xrange(len(aaaa_records)):
+                domain = re.search(domain_pattern, [dicts.get("domain_name") for dicts in aaaa_records][i])
+                group_of_domains.append(domain.group())
+
         if naptr_records:
             for i in xrange(len(naptr_records)):
                 domain = re.search(domain_pattern,
@@ -109,6 +123,12 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
             for i in xrange(len(a_records_delete)):
                 domain = re.search(domain_pattern,
                                    [dicts.get("domain_name") for dicts in a_records_delete][i])
+                group_of_domains_to_remove.append(domain.group())
+
+        if aaaa_records_delete:
+            for i in xrange(len(aaaa_records_delete)):
+                domain = re.search(domain_pattern,
+                                   [dicts.get("domain_name") for dicts in aaaa_records_delete][i])
                 group_of_domains_to_remove.append(domain.group())
 
         if naptr_records_delete:
@@ -159,9 +179,10 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
     BadRecord = namedtuple('BadRecord', 'Record Error')
     TypeofSuccess = namedtuple('TypeofSuccess', 'Flag Evidence BadRecords')
     badrecord_list = list()
-    total_len = len(a_records) + len(a_records_delete) + len(naptr_records) + len(naptr_records_delete)
-    # Add NAPTR Records
+    total_len = len(a_records) + len(a_records_delete) + len(naptr_records) + len(naptr_records_delete) + len(
+        aaaa_records) + len(aaaa_records_delete)
 
+    # Add NAPTR Records
     if len(naptr_records) != 0:
         records_to_remove = list()
         for records in naptr_records:
@@ -177,8 +198,8 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
                 continue
         for records in records_to_remove:
             naptr_records.remove(records)
-    # Delete NAPTR Records
 
+    # Delete NAPTR Records
     if len(naptr_records_delete) != 0:
         records_to_remove = list()
         for records in naptr_records_delete:
@@ -194,8 +215,8 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
                 continue
         for records in records_to_remove:
             naptr_records_delete.remove(records)
-    # Add A Records
 
+    # Add A Records
     if len(a_records) != 0:
         records_to_remove = list()
         for records in a_records:
@@ -212,8 +233,8 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
                 continue
         for records in records_to_remove:
             a_records.remove(records)
-    # Delete A Records
 
+    # Delete A Records
     if len(a_records_delete) != 0:
         records_to_remove = list()
         for records in a_records_delete:
@@ -230,6 +251,42 @@ def flush_dns_configuration(b, view_name, naptr_records, naptr_records_delete, a
                 continue
         for records in records_to_remove:
             a_records_delete.remove(records)
+
+    # Add AAAA Records
+    if len(aaaa_records) != 0:
+        records_to_remove = list()
+        for records in aaaa_records:
+            try:
+                b.Management.ResourceRecord.add_aaaa(
+                    view_zones=[{"view_name": view_name, "zone_name": re.search(zone_pattern, records.get(
+                        "domain_name")).group()}],
+                    aaaa_records=[[records]],
+                    sync_ptrs=["false"]
+                )
+            except Exception as error:
+                badrecord_list.append(BadRecord(Record=records, Error=error))
+                records_to_remove.append(records)
+                continue
+        for records in records_to_remove:
+            aaaa_records.remove(records)
+
+    # Delete AAAA Records
+    if len(aaaa_records_delete) != 0:
+        records_to_remove = list()
+        for records in aaaa_records_delete:
+            try:
+                b.Management.ResourceRecord.delete_aaaa(
+                    view_zones=[{"view_name": view_name, "zone_name": re.search(zone_pattern, records.get(
+                        "domain_name")).group()}],
+                    aaaa_records=[[records]],
+                    sync_ptrs=["false"]
+                )
+            except Exception as error:
+                badrecord_list.append(BadRecord(Record=records, Error=error))
+                records_to_remove.append(records)
+                continue
+        for records in records_to_remove:
+            aaaa_records_delete.remove(records)
 
     if len(badrecord_list) == total_len:
         return TypeofSuccess(Flag="A", Evidence=None, BadRecords=badrecord_list)
@@ -301,16 +358,21 @@ def evolved_extract_records(arquivo_input):
         {"action": "add", "domain_name":"testp.tim.br.mnc004.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
         {"action": "remove", "domain_name":"testp.tim.br.mnc002.mcc724.gprs.", "ip_address": "10.221.58.214", "ttl":300}
 
+        {"action": "add", "domain_name":"testp.tim.br.mnc003.mcc724.gprs.", "ip_address": "2804:20:4::20", "ttl":300}
+        {"action": "add", "domain_name":"testp.tim.br.mnc004.mcc724.gprs.", "ip_address": "2804:20:4::21", "ttl":300}
+        {"action": "remove", "domain_name":"testp.tim.br.mnc002.mcc724.gprs.", "ip_address": "2804:20:4::22", "ttl":300}
+
        For more information go to devcentral.f5.com and search for iControl API.
     """
     RecordCollection = namedtuple('Records',
-                                  'a_records a_records_delete naptr_records naptr_records_delete bad_entries')
+                                  'aaaa_records aaaa_records_delete a_records a_records_delete '
+                                  'naptr_records naptr_records_delete bad_entries')
     BadEntries = namedtuple('BadEntries', 'File Line Entry Flag')
-    result = RecordCollection(a_records=[], a_records_delete=[], naptr_records=[], naptr_records_delete=[],
-                              bad_entries=[])
+    result = RecordCollection(aaaa_records=[], aaaa_records_delete=[], a_records=[], a_records_delete=[],
+                              naptr_records=[], naptr_records_delete=[], bad_entries=[])
     line_counter = 0
     for arquivo in arquivo_input:
-        with open(arquivo, "r") as resrec:
+        with open(os.path.abspath(arquivo), "r") as resrec:
             for lines in resrec:
                 line_counter += 1
                 if lines.strip():
@@ -329,10 +391,16 @@ def evolved_extract_records(arquivo_input):
                         else:
                             if lines.get("action").lower() == "add":
                                 lines.pop("action")
-                                result.a_records.append(lines)
+                                if ':' in lines.get('ip_address'):
+                                    result.aaaa_records.append(lines)
+                                else:
+                                    result.a_records.append(lines)
                             elif lines.get("action").lower() == "remove":
                                 lines.pop("action")
-                                result.a_records_delete.append(lines)
+                                if ':' in lines.get('ip_address'):
+                                    result.aaaa_records_delete.append(lines)
+                                else:
+                                    result.a_records_delete.append(lines)
                             else:
                                 result.bad_entries.append(BadEntries(File=arquivo, Line=line_counter, Entry=lines,
                                                                      Flag="Parametro action fora do padrao."))
@@ -435,7 +503,7 @@ def main_cvna_f5_app_main():
         elif choose_action == "2":
 
             view_name = args.view.strip() if args.view else raw_input("Escreva o nome da view que deseja configurar: ")
-            arquivo_input = args.file.strip() if args.file else raw_input(
+            arquivo_input = args.file.strip().split(';') if args.file else raw_input(
                 "Escreva os nomes dos arquivos de input, utilizando ponto e virgula (;) "
                 "como separador: ").split(";")
             try:
@@ -457,7 +525,8 @@ def main_cvna_f5_app_main():
                                 entry.File, entry.Line, entry.Entry, entry.Flag
                             ))
                 elif (not records.a_records and not records.naptr_records) and \
-                        (not records.a_records_delete and not records.naptr_records_delete):
+                        (not records.a_records_delete and not records.naptr_records_delete) and \
+                        (not records.aaaa_records and not records.aaaa_records_delete):
 
                     print("Nao foi possivel extrair nenhuma configuracao dos arquivos: {}".format(
                         arquivo_input
@@ -466,7 +535,8 @@ def main_cvna_f5_app_main():
                     continue
                 result = flush_dns_configuration(b, view_name, records.naptr_records,
                                                  records.naptr_records_delete, records.a_records,
-                                                 records.a_records_delete)
+                                                 records.a_records_delete, records.aaaa_records,
+                                                 records.aaaa_records_delete)
                 arquivo_input_final = list()
                 for arquivo in arquivo_input:
                     arquivo_final = os.path.split(arquivo)[1]
@@ -523,7 +593,9 @@ def main_cvna_f5_app_main():
                     pass
             except Exception as err:
                 print("Encontramos um erro. Reporte-o ao desenvolvedor (decastromonteiro@gmail.com).")
-                print(err)
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                print(exc_type, fname, exc_tb.tb_lineno)
                 raw_input()
 
         elif choose_action == "3":
